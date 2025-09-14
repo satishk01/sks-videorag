@@ -1,6 +1,7 @@
 import click
 from fastmcp import FastMCP
 
+from kubrick_mcp.config import get_settings
 from kubrick_mcp.prompts import general_system_prompt, routing_system_prompt, tool_use_system_prompt
 from kubrick_mcp.resources import list_tables
 from kubrick_mcp.tools import (
@@ -9,6 +10,8 @@ from kubrick_mcp.tools import (
     get_video_clip_from_user_query,
     process_video,
 )
+
+settings = get_settings()
 
 
 def add_mcp_tools(mcp: FastMCP):
@@ -82,14 +85,18 @@ add_mcp_resources(mcp)
 
 
 @click.command()
-@click.option("--port", default=9090, help="FastMCP server port")
-@click.option("--host", default="0.0.0.0", help="FastMCP server host")
+@click.option("--port", default=None, help="FastMCP server port")
+@click.option("--host", default=None, help="FastMCP server host")
 @click.option("--transport", default="streamable-http", help="MCP Transport protocol type")
 def run_mcp(port, host, transport):
     """
     Run the FastMCP server with the specified port, host, and transport protocol.
     """
-    mcp.run(host=host, port=port, transport=transport)
+    # Use configuration defaults if not provided
+    actual_host = host or settings.MCP_HOST
+    actual_port = port or settings.MCP_PORT
+    
+    mcp.run(host=actual_host, port=actual_port, transport=transport)
 
 
 if __name__ == "__main__":

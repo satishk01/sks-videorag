@@ -185,12 +185,16 @@ async def serve_media(file_path: str):
 
 
 @click.command()
-@click.option("--port", default=8080, help="FastAPI server port")
-@click.option("--host", default="0.0.0.0", help="FastAPI server host")
+@click.option("--port", default=None, help="FastAPI server port")
+@click.option("--host", default=None, help="FastAPI server host")
 def run_api(port, host):
     import uvicorn
+    
+    # Use configuration defaults if not provided
+    actual_host = host or settings.API_HOST
+    actual_port = port or settings.API_PORT
 
-    uvicorn.run("api:app", host=host, port=port, loop="asyncio")
+    uvicorn.run("api:app", host=actual_host, port=actual_port, loop="asyncio")
 
 
 if __name__ == "__main__":

@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     VIDEO_CLIP_CAPTION_SEARCH_TOP_K: int = 1
     VIDEO_CLIP_IMAGE_SEARCH_TOP_K: int = 1
     QUESTION_ANSWER_TOP_K: int = 3
+    
+    # --- Server Configuration ---
+    MCP_HOST: str = "0.0.0.0"
+    MCP_PORT: int = 9090
 
 
 @lru_cache(maxsize=1)

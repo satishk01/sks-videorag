@@ -39,6 +39,10 @@ class Settings(BaseSettings):
 
     # --- MCP Configuration ---
     MCP_SERVER: str = "http://kubrick-mcp:9090/mcp"
+    
+    # --- Server Configuration ---
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8080
 
     # --- Disable Nest Asyncio ---
     DISABLE_NEST_ASYNCIO: bool = True

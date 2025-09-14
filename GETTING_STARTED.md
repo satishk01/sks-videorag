@@ -82,4 +82,24 @@ Open your browser and go to http://localhost:3000/ to start using Kubrick!
 
 - **[AWS Bedrock Setup Guide](docs/AWS_BEDROCK_SETUP.md)** - Complete setup instructions for AWS Bedrock integration
 - **[Bedrock Deployment Guide](docs/BEDROCK_DEPLOYMENT_GUIDE.md)** - Production deployment and configuration options
+- **[EC2 Deployment Guide](docs/EC2_DEPLOYMENT_GUIDE.md)** - Deploy on Amazon EC2 with public IP access
 - **Provider Comparison** - See README.md for detailed provider feature comparison
+
+## EC2 Deployment (Production)
+
+For production deployment on Amazon EC2:
+
+1. **Launch EC2 instance** (t3.large or larger recommended)
+2. **Configure security groups** for ports 3000, 8080, 9090
+3. **Run setup script**:
+   ```bash
+   chmod +x scripts/setup-ec2.sh
+   ./scripts/setup-ec2.sh
+   ```
+4. **Start services**:
+   ```bash
+   docker-compose up -d
+   ```
+5. **Access via public IP**: `http://your-ec2-ip:3000`
+
+See [EC2 Deployment Guide](docs/EC2_DEPLOYMENT_GUIDE.md) for detailed instructions.
