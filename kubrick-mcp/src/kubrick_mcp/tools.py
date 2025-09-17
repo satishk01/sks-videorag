@@ -13,42 +13,31 @@ settings = get_settings()
 # Initialize video processor with error handling
 video_processor = None
 
-try:
-    # Check if we should use AWS-only mode
-    openai_available = bool(getattr(settings, 'OPENAI_API_KEY', None))
+# Check if we should use AWS-only mode
+openai_available = bool(getattr(settings, 'OPENAI_API_KEY', None))
+
+if not openai_available:
+    logger.info("No OpenAI API key - using lazy AWS video processing")
     
-    if not openai_available:
-        logger.info("No OpenAI API key - using AWS-native video processing")
-        
-        # Use complete AWS video processor
-        from kubrick_mcp.video.ingestion.aws_video_processor_complete import AWSVideoProcessor
-        video_processor = AWSVideoProcessor()
-        logger.info("AWS-native VideoProcessor initialized successfully")
-    else:
+    # Use lazy-loading AWS video processor to avoid import issues
+    from kubrick_mcp.video.ingestion.lazy_aws_processor import LazyAWSVideoProcessor
+    video_processor = LazyAWSVideoProcessor()
+    logger.info("Lazy AWS VideoProcessor initialized successfully")
+else:
+    logger.info("OpenAI API key available - using OpenAI video processing")
+    
+    try:
         # Use normal VideoProcessor with OpenAI
         from kubrick_mcp.video.ingestion.video_processor import VideoProcessor
         video_processor = VideoProcessor()
         logger.info("VideoProcessor initialized with OpenAI support")
+    except Exception as e:
+        logger.error(f"OpenAI VideoProcessor initialization failed: {e}")
         
-except Exception as e:
-    logger.error(f"VideoProcessor initialization failed: {e}")
-    import traceback
-    traceback.print_exc()
-    
-    # Minimal processor as fallback
-    class MinimalVideoProcessor:
-        def setup_table(self, video_name: str):
-            logger.error("VideoProcessor not available - dependencies missing")
-            return False
-        
-        def add_video(self, video_path: str) -> bool:
-            logger.error("VideoProcessor not available - dependencies missing") 
-            return False
-        
-        def _check_if_exists(self, video_path: str) -> bool:
-            return False
-    
-    video_processor = MinimalVideoProcessor()
+        # Fallback to lazy AWS processor
+        from kubrick_mcp.video.ingestion.lazy_aws_processor import LazyAWSVideoProcessor
+        video_processor = LazyAWSVideoProcessor()
+        logger.info("Fallback to Lazy AWS VideoProcessor")
 
 
 def process_video(video_path: str) -> str:
