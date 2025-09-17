@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastmcp.client import Client
 from loguru import logger
 
-from kubrick_api.agent import GroqAgent
+from kubrick_api.agent import GroqAgent, BedrockAgent
 from kubrick_api.config import get_settings
 from kubrick_api.models import (
     AssistantMessageResponse,
@@ -36,11 +36,20 @@ class TaskStatus(str, Enum):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.agent = GroqAgent(
-        name="kubrick",
-        mcp_server=settings.MCP_SERVER,
-        disable_tools=["process_video"],
-    )
+    # Select agent based on configuration
+    if settings.AGENT_PROVIDER.lower() == "bedrock":
+        app.state.agent = BedrockAgent(
+            name="kubrick",
+            mcp_server=settings.MCP_SERVER,
+            disable_tools=["process_video"],
+        )
+    else:
+        app.state.agent = GroqAgent(
+            name="kubrick",
+            mcp_server=settings.MCP_SERVER,
+            disable_tools=["process_video"],
+        )
+    
     app.state.bg_task_states = dict()
     yield
     app.state.agent.reset_memory()
