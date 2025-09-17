@@ -5,17 +5,76 @@ from loguru import logger
 
 from kubrick_mcp.config import get_settings
 from kubrick_mcp.video.ingestion.tools import extract_video_clip
-from kubrick_mcp.video.ingestion.video_processor import VideoProcessor
-from kubrick_mcp.video.ingestion.aws_patch import patch_video_processor
 from kubrick_mcp.video.video_search_engine import VideoSearchEngine
 
 logger = logger.bind(name="MCPVideoTools")
-
-# Apply AWS patch if needed
-patch_video_processor()
-
-video_processor = VideoProcessor()
 settings = get_settings()
+
+# Initialize video processor with error handling
+video_processor = None
+
+try:
+    # Try to import and use AWS-enabled VideoProcessor
+    from kubrick_mcp.video.ingestion.video_processor import VideoProcessor
+    from kubrick_mcp.video.ingestion.aws_patch import patch_video_processor
+    
+    # Apply AWS patch if needed
+    patch_video_processor()
+    video_processor = VideoProcessor()
+    logger.info("VideoProcessor initialized with AWS support")
+    
+except ImportError as e:
+    logger.warning(f"AWS dependencies not available: {e}")
+    logger.info("Falling back to basic VideoProcessor")
+    
+    # Fallback: Create a basic VideoProcessor without AWS imports
+    try:
+        # Import the original VideoProcessor without AWS dependencies
+        import sys
+        import importlib.util
+        
+        # Load VideoProcessor module without triggering AWS imports
+        spec = importlib.util.spec_from_file_location(
+            "video_processor_basic", 
+            "/app/src/kubrick_mcp/video/ingestion/video_processor_basic.py"
+        )
+        if spec and spec.loader:
+            video_processor_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(video_processor_module)
+            video_processor = video_processor_module.VideoProcessor()
+        else:
+            # Last resort: create a minimal processor
+            class MinimalVideoProcessor:
+                def setup_table(self, video_name: str):
+                    logger.error("VideoProcessor not available - AWS dependencies missing")
+                    return False
+                
+                def add_video(self, video_path: str) -> bool:
+                    logger.error("VideoProcessor not available - AWS dependencies missing")
+                    return False
+                
+                def _check_if_exists(self, video_path: str) -> bool:
+                    return False
+            
+            video_processor = MinimalVideoProcessor()
+            
+    except Exception as fallback_error:
+        logger.error(f"Fallback VideoProcessor failed: {fallback_error}")
+        
+        # Minimal processor as last resort
+        class MinimalVideoProcessor:
+            def setup_table(self, video_name: str):
+                logger.error("VideoProcessor not available - dependencies missing")
+                return False
+            
+            def add_video(self, video_path: str) -> bool:
+                logger.error("VideoProcessor not available - dependencies missing") 
+                return False
+            
+            def _check_if_exists(self, video_path: str) -> bool:
+                return False
+        
+        video_processor = MinimalVideoProcessor()
 
 
 def process_video(video_path: str) -> str:
