@@ -6,9 +6,14 @@ from loguru import logger
 from kubrick_mcp.config import get_settings
 from kubrick_mcp.video.ingestion.tools import extract_video_clip
 from kubrick_mcp.video.ingestion.video_processor import VideoProcessor
+from kubrick_mcp.video.ingestion.aws_patch import patch_video_processor
 from kubrick_mcp.video.video_search_engine import VideoSearchEngine
 
 logger = logger.bind(name="MCPVideoTools")
+
+# Apply AWS patch if needed
+patch_video_processor()
+
 video_processor = VideoProcessor()
 settings = get_settings()
 
