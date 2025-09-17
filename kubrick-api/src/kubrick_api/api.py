@@ -192,7 +192,7 @@ def run_api(port, host):
     
     # Use configuration defaults if not provided
     actual_host = host or settings.API_HOST
-    actual_port = port or settings.API_PORT
+    actual_port = int(port or settings.API_PORT)
 
     uvicorn.run("api:app", host=actual_host, port=actual_port, loop="asyncio")
 

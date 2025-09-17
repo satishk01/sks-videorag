@@ -94,7 +94,7 @@ def run_mcp(port, host, transport):
     """
     # Use configuration defaults if not provided
     actual_host = host or settings.MCP_HOST
-    actual_port = port or settings.MCP_PORT
+    actual_port = int(port or settings.MCP_PORT)
     
     mcp.run(host=actual_host, port=actual_port, transport=transport)
 

@@ -47,7 +47,7 @@ class AgentProviderFactory:
         return self._chat_provider
     
     async def get_chat_provider_with_fallback(self) -> ChatProvider:
-        """Get chat provider with fallback to Groq."""
+        """Get chat provider with intelligent fallback."""
         try:
             provider = await self.get_chat_provider()
             if provider.is_available():
@@ -55,17 +55,21 @@ class AgentProviderFactory:
         except Exception as e:
             logger.warning(f"Primary chat provider failed: {e}")
         
-        # Fallback to Groq
-        try:
-            fallback_provider = GroqChatProvider(
-                api_key=self.settings.GROQ_API_KEY,
-                model=self.settings.GROQ_TOOL_USE_MODEL
-            )
-            await fallback_provider.initialize()
-            if fallback_provider.is_available():
-                logger.info("Using fallback Groq chat provider")
-                return fallback_provider
-        except Exception as e:
-            logger.error(f"Fallback chat provider also failed: {e}")
+        # Only fallback to Groq if API key is available
+        groq_available = bool(getattr(self.settings, 'GROQ_API_KEY', None))
+        if groq_available:
+            try:
+                fallback_provider = GroqChatProvider(
+                    api_key=self.settings.GROQ_API_KEY,
+                    model=self.settings.GROQ_TOOL_USE_MODEL
+                )
+                await fallback_provider.initialize()
+                if fallback_provider.is_available():
+                    logger.info("Using fallback Groq chat provider")
+                    return fallback_provider
+            except Exception as e:
+                logger.error(f"Fallback Groq chat provider failed: {e}")
+        else:
+            logger.info("No Groq API key available, skipping Groq fallback")
         
         raise ProviderUnavailableError("all", "All chat providers unavailable")

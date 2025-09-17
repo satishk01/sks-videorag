@@ -92,7 +92,7 @@ class AIProviderFactory:
         return self._transcription_provider
     
     async def get_vision_provider_with_fallback(self) -> VisionProvider:
-        """Get vision provider with fallback to OpenAI."""
+        """Get vision provider with intelligent fallback."""
         try:
             provider = await self.get_vision_provider()
             if provider.is_available():
@@ -100,20 +100,24 @@ class AIProviderFactory:
         except Exception as e:
             logger.warning(f"Primary vision provider failed: {e}")
         
-        # Fallback to OpenAI
-        try:
-            fallback_provider = OpenAIVisionProvider(model=self.settings.IMAGE_CAPTION_MODEL)
-            await fallback_provider.initialize()
-            if fallback_provider.is_available():
-                logger.info("Using fallback OpenAI vision provider")
-                return fallback_provider
-        except Exception as e:
-            logger.error(f"Fallback vision provider also failed: {e}")
+        # Only fallback to OpenAI if API key is available
+        openai_available = bool(getattr(self.settings, 'OPENAI_API_KEY', None))
+        if openai_available:
+            try:
+                fallback_provider = OpenAIVisionProvider(model=self.settings.IMAGE_CAPTION_MODEL)
+                await fallback_provider.initialize()
+                if fallback_provider.is_available():
+                    logger.info("Using fallback OpenAI vision provider")
+                    return fallback_provider
+            except Exception as e:
+                logger.error(f"Fallback OpenAI vision provider failed: {e}")
+        else:
+            logger.info("No OpenAI API key available, skipping OpenAI fallback")
         
         raise ProviderUnavailableError("all", "All vision providers unavailable")
     
     async def get_embeddings_provider_with_fallback(self) -> EmbeddingsProvider:
-        """Get embeddings provider with fallback to OpenAI."""
+        """Get embeddings provider with intelligent fallback."""
         try:
             provider = await self.get_embeddings_provider()
             if provider.is_available():
@@ -121,20 +125,24 @@ class AIProviderFactory:
         except Exception as e:
             logger.warning(f"Primary embeddings provider failed: {e}")
         
-        # Fallback to OpenAI
-        try:
-            fallback_provider = OpenAIEmbeddingsProvider(model=self.settings.TRANSCRIPT_SIMILARITY_EMBD_MODEL)
-            await fallback_provider.initialize()
-            if fallback_provider.is_available():
-                logger.info("Using fallback OpenAI embeddings provider")
-                return fallback_provider
-        except Exception as e:
-            logger.error(f"Fallback embeddings provider also failed: {e}")
+        # Only fallback to OpenAI if API key is available
+        openai_available = bool(getattr(self.settings, 'OPENAI_API_KEY', None))
+        if openai_available:
+            try:
+                fallback_provider = OpenAIEmbeddingsProvider(model=self.settings.TRANSCRIPT_SIMILARITY_EMBD_MODEL)
+                await fallback_provider.initialize()
+                if fallback_provider.is_available():
+                    logger.info("Using fallback OpenAI embeddings provider")
+                    return fallback_provider
+            except Exception as e:
+                logger.error(f"Fallback OpenAI embeddings provider failed: {e}")
+        else:
+            logger.info("No OpenAI API key available, skipping OpenAI fallback")
         
         raise ProviderUnavailableError("all", "All embeddings providers unavailable")
     
     async def get_transcription_provider_with_fallback(self) -> TranscriptionProvider:
-        """Get transcription provider with fallback logic."""
+        """Get transcription provider with intelligent fallback."""
         try:
             provider = await self.get_transcription_provider()
             if provider.is_available():
@@ -142,24 +150,28 @@ class AIProviderFactory:
         except Exception as e:
             logger.warning(f"Primary transcription provider failed: {e}")
         
-        # Try alternative provider
+        # Try alternative provider based on what's available
         try:
             openai_available = bool(getattr(self.settings, 'OPENAI_API_KEY', None))
             
             if openai_available:
-                # Try AWS Transcribe as fallback
-                fallback_provider = AWSTranscribeProvider(region=self.settings.AWS_REGION)
-                await fallback_provider.initialize()
-                if fallback_provider.is_available():
-                    logger.info("Using fallback AWS Transcribe provider")
-                    return fallback_provider
+                # If we started with OpenAI, try AWS Transcribe as fallback
+                if isinstance(self._transcription_provider, OpenAITranscriptionProvider):
+                    fallback_provider = AWSTranscribeProvider(region=self.settings.AWS_REGION)
+                    await fallback_provider.initialize()
+                    if fallback_provider.is_available():
+                        logger.info("Using fallback AWS Transcribe provider")
+                        return fallback_provider
+                # If we started with AWS, try OpenAI as fallback
+                else:
+                    fallback_provider = OpenAITranscriptionProvider(model=self.settings.AUDIO_TRANSCRIPT_MODEL)
+                    await fallback_provider.initialize()
+                    if fallback_provider.is_available():
+                        logger.info("Using fallback OpenAI transcription provider")
+                        return fallback_provider
             else:
-                # Try OpenAI as fallback (if key becomes available)
-                fallback_provider = OpenAITranscriptionProvider(model=self.settings.AUDIO_TRANSCRIPT_MODEL)
-                await fallback_provider.initialize()
-                if fallback_provider.is_available():
-                    logger.info("Using fallback OpenAI transcription provider")
-                    return fallback_provider
+                # No OpenAI key available, AWS Transcribe should be primary and only option
+                logger.info("No OpenAI API key available, AWS Transcribe is the only option")
         except Exception as e:
             logger.error(f"Fallback transcription provider also failed: {e}")
         
