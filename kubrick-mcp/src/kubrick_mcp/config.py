@@ -5,10 +5,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="kubrick-mcp/.env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
     # --- OPIK Configuration ---
-    OPIK_API_KEY: str
+    OPIK_API_KEY: Optional[str] = None
     OPIK_WORKSPACE: str = "default"
     OPIK_PROJECT: str = "kubrick-mcp"
 
@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     AWS_SESSION_TOKEN: Optional[str] = None
 
     # --- Provider Selection ---
-    VISION_PROVIDER: str = "openai"  # openai | bedrock
-    TRANSCRIPTION_PROVIDER: str = "openai"  # openai | bedrock
-    EMBEDDINGS_PROVIDER: str = "openai"  # openai | bedrock
+    VISION_PROVIDER: str = "bedrock"  # openai | bedrock
+    TRANSCRIPTION_PROVIDER: str = "bedrock"  # openai | bedrock (auto-selected based on available keys)
+    EMBEDDINGS_PROVIDER: str = "bedrock"  # openai | bedrock
 
     # --- Bedrock Model Configuration ---
     BEDROCK_CLAUDE_MODEL: str = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"

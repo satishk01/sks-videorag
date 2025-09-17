@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file="agent-api/.env", extra="ignore", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_file_encoding="utf-8")
 
     # --- GROQ Configuration ---
     GROQ_API_KEY: Optional[str] = None
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     AWS_SESSION_TOKEN: Optional[str] = None
 
     # --- Provider Selection ---
-    AGENT_PROVIDER: str = "groq"  # groq | bedrock
+    AGENT_PROVIDER: str = "bedrock"  # groq | bedrock
 
     # --- Bedrock Model Configuration ---
     BEDROCK_CLAUDE_MODEL: str = "us.anthropic.claude-3-5-sonnet-20241022-v2:0"

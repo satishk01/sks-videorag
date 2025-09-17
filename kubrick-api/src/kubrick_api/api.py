@@ -36,14 +36,20 @@ class TaskStatus(str, Enum):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Debug: Print configuration
+    logger.info(f"AGENT_PROVIDER setting: {settings.AGENT_PROVIDER}")
+    logger.info(f"Available settings: {[attr for attr in dir(settings) if not attr.startswith('_')]}")
+    
     # Select agent based on configuration
     if settings.AGENT_PROVIDER.lower() == "bedrock":
+        logger.info("Initializing BedrockAgent")
         app.state.agent = BedrockAgent(
             name="kubrick",
             mcp_server=settings.MCP_SERVER,
             disable_tools=["process_video"],
         )
     else:
+        logger.info("Initializing GroqAgent")
         app.state.agent = GroqAgent(
             name="kubrick",
             mcp_server=settings.MCP_SERVER,
