@@ -53,14 +53,19 @@ async def _get_embeddings_provider():
 
 # Pixeltable-compatible function wrappers
 @pxt.udf
-def aws_transcribe(audio: pxt.AudioType, model: str = None) -> str:
+def aws_transcribe(audio, model: str = None) -> str:
     """Pixeltable UDF for AWS transcription."""
     try:
         logger.info("Starting AWS transcription")
         
         # Save audio to temporary file
         with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
-            temp_file.write(audio)
+            if hasattr(audio, 'read'):
+                # File-like object
+                temp_file.write(audio.read())
+            else:
+                # Bytes
+                temp_file.write(audio)
             temp_file.flush()
             
             async def transcribe():
@@ -70,8 +75,8 @@ def aws_transcribe(audio: pxt.AudioType, model: str = None) -> str:
                 return await provider.transcribe_audio(audio_data)
             
             result = _run_async(transcribe())
-            logger.info(f"Transcription result: {result[:100]}...")
-            return result
+            logger.info(f"Transcription result: {result[:100] if result else 'Empty'}...")
+            return result or ""
             
     except Exception as e:
         logger.error(f"Transcription error: {e}")
@@ -79,7 +84,7 @@ def aws_transcribe(audio: pxt.AudioType, model: str = None) -> str:
 
 
 @pxt.udf  
-def aws_vision(image: pxt.ImageType, prompt: str, model: str = None) -> str:
+def aws_vision(image, prompt: str, model: str = None) -> str:
     """Pixeltable UDF for AWS vision."""
     try:
         logger.info("Starting AWS vision analysis")
@@ -90,6 +95,10 @@ def aws_vision(image: pxt.ImageType, prompt: str, model: str = None) -> str:
             buffer = io.BytesIO()
             image.convert('RGB').save(buffer, format='JPEG')
             image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        elif hasattr(image, 'read'):
+            # File-like object
+            image_data = image.read()
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
         else:
             # Assume it's already bytes
             image_base64 = base64.b64encode(image).decode('utf-8')
@@ -99,15 +108,15 @@ def aws_vision(image: pxt.ImageType, prompt: str, model: str = None) -> str:
             return await provider.analyze_image(image_base64, prompt)
         
         result = _run_async(analyze())
-        logger.info(f"Vision result: {result[:100]}...")
-        return result
+        logger.info(f"Vision result: {result[:100] if result else 'Empty'}...")
+        return result or ""
         
     except Exception as e:
         logger.error(f"Vision error: {e}")
         return ""
 
 
-@pxt.udf(return_type=pxt.ArrayType(pxt.FloatType()))
+@pxt.udf
 def aws_embeddings(text: str, model: str = None) -> List[float]:
     """Pixeltable UDF for AWS embeddings."""
     try:

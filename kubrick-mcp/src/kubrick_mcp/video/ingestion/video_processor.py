@@ -13,8 +13,6 @@ from pixeltable.iterators.video import FrameIterator
 
 import kubrick_mcp.video.ingestion.registry as registry
 from kubrick_mcp.config import get_settings
-from kubrick_mcp.providers.factory import AIProviderFactory
-from kubrick_mcp.video.ingestion.aws_functions import aws_transcribe, aws_vision, aws_embeddings
 from kubrick_mcp.video.ingestion.functions import extract_text_from_chunk, resize_image
 from kubrick_mcp.video.ingestion.tools import re_encode_video
 
@@ -34,7 +32,6 @@ class VideoProcessor:
         self._frames_view = None
         self._audio_chunks = None
         self._video_mapping_idx: Optional[str] = None
-        self._provider_factory = AIProviderFactory()
 
         logger.info(
             "VideoProcessor initialized",
@@ -124,28 +121,13 @@ class VideoProcessor:
         )
 
     def _add_audio_transcription(self):
-        # Check if we should use AWS or OpenAI based on available keys
-        openai_available = bool(getattr(settings, 'OPENAI_API_KEY', None))
-        
-        if openai_available:
-            # Use OpenAI if key is available
-            self.audio_chunks.add_computed_column(
-                transcription=openai.transcriptions(
-                    audio=self.audio_chunks.audio_chunk,
-                    model=settings.AUDIO_TRANSCRIPT_MODEL,
-                ),
-                if_exists="ignore",
-            )
-        else:
-            # Use AWS Transcribe if no OpenAI key
-            logger.info("Using AWS Transcribe for audio transcription")
-            self.audio_chunks.add_computed_column(
-                transcription=aws_transcribe(
-                    audio=self.audio_chunks.audio_chunk,
-                    model=settings.AUDIO_TRANSCRIPT_MODEL,
-                ),
-                if_exists="ignore",
-            )
+        self.audio_chunks.add_computed_column(
+            transcription=openai.transcriptions(
+                audio=self.audio_chunks.audio_chunk,
+                model=settings.AUDIO_TRANSCRIPT_MODEL,
+            ),
+            if_exists="ignore",
+        )
 
     def _add_audio_text_extraction(self):
         self.audio_chunks.add_computed_column(
@@ -154,31 +136,12 @@ class VideoProcessor:
         )
 
     def _add_audio_embedding_index(self):
-        # Check if we should use AWS or OpenAI based on provider settings
-        if settings.EMBEDDINGS_PROVIDER.lower() == "bedrock":
-            logger.info("Using AWS Bedrock for audio embeddings")
-            # Add embedding column first
-            self.audio_chunks.add_computed_column(
-                chunk_embedding=aws_embeddings(
-                    text=self.audio_chunks.chunk_text,
-                    model=settings.TRANSCRIPT_SIMILARITY_EMBD_MODEL,
-                ),
-                if_exists="ignore",
-            )
-            # Then add index on the embedding column
-            self.audio_chunks.add_embedding_index(
-                column=self.audio_chunks.chunk_embedding,
-                if_exists="ignore",
-                idx_name="chunks_index",
-            )
-        else:
-            # Use OpenAI embeddings
-            self.audio_chunks.add_embedding_index(
-                column=self.audio_chunks.chunk_text,
-                string_embed=embeddings.using(model=settings.TRANSCRIPT_SIMILARITY_EMBD_MODEL),
-                if_exists="ignore",
-                idx_name="chunks_index",
-            )
+        self.audio_chunks.add_embedding_index(
+            column=self.audio_chunks.chunk_text,
+            string_embed=embeddings.using(model=settings.TRANSCRIPT_SIMILARITY_EMBD_MODEL),
+            if_exists="ignore",
+            idx_name="chunks_index",
+        )
 
     def _setup_frame_processing(self):
         self._create_frames_view()
@@ -209,50 +172,20 @@ class VideoProcessor:
         )
 
     def _add_frame_captioning(self):
-        # Check if we should use AWS or OpenAI based on provider settings
-        if settings.VISION_PROVIDER.lower() == "bedrock":
-            logger.info("Using AWS Bedrock for image captioning")
-            self.frames_view.add_computed_column(
-                im_caption=aws_vision(
-                    prompt=settings.CAPTION_MODEL_PROMPT,
-                    image=self.frames_view.resized_frame,
-                    model=settings.IMAGE_CAPTION_MODEL,
-                )
+        self.frames_view.add_computed_column(
+            im_caption=vision(
+                prompt=settings.CAPTION_MODEL_PROMPT,
+                image=self.frames_view.resized_frame,
+                model=settings.IMAGE_CAPTION_MODEL,
             )
-        else:
-            # Use OpenAI vision
-            self.frames_view.add_computed_column(
-                im_caption=vision(
-                    prompt=settings.CAPTION_MODEL_PROMPT,
-                    image=self.frames_view.resized_frame,
-                    model=settings.IMAGE_CAPTION_MODEL,
-                )
-            )
+        )
 
     def _add_caption_embedding_index(self):
-        # Check if we should use AWS or OpenAI based on provider settings
-        if settings.EMBEDDINGS_PROVIDER.lower() == "bedrock":
-            logger.info("Using AWS Bedrock for caption embeddings")
-            # Add embedding column first
-            self.frames_view.add_computed_column(
-                caption_embedding=aws_embeddings(
-                    text=self.frames_view.im_caption,
-                    model=settings.CAPTION_SIMILARITY_EMBD_MODEL,
-                ),
-                if_exists="ignore",
-            )
-            # Then add index on the embedding column
-            self.frames_view.add_embedding_index(
-                column=self.frames_view.caption_embedding,
-                if_exists="replace_force",
-            )
-        else:
-            # Use OpenAI embeddings
-            self.frames_view.add_embedding_index(
-                column=self.frames_view.im_caption,
-                string_embed=embeddings.using(model=settings.CAPTION_SIMILARITY_EMBD_MODEL),
-                if_exists="replace_force",
-            )
+        self.frames_view.add_embedding_index(
+            column=self.frames_view.im_caption,
+            string_embed=embeddings.using(model=settings.CAPTION_SIMILARITY_EMBD_MODEL),
+            if_exists="replace_force",
+        )
 
     def add_video(self, video_path: str) -> bool:
         """
