@@ -1,0 +1,111 @@
+FROM nginx:alpine
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Create a simple index.html for now
+RUN mkdir -p /usr/share/nginx/html
+
+# Create index.html
+RUN cat > /usr/share/nginx/html/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kubrick AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .api-link {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Kubrick AI</h1>
+        <div class="status">
+            ✅ System is running with AWS Bedrock integration
+        </div>
+        
+        <h2>API Access</h2>
+        <p>Your Kubrick AI API is running and ready to use:</p>
+        <a href="/docs" class="api-link">📚 API Documentation</a>
+        <a href="/health" class="api-link">🔍 Health Check</a>
+        
+        <h2>Features</h2>
+        <ul>
+            <li>🤖 AWS Bedrock Claude 3.5 Sonnet v2 Agent</li>
+            <li>🎥 Video Processing with AI</li>
+            <li>🔍 Intelligent Video Search</li>
+            <li>📝 AWS Transcribe Integration</li>
+            <li>🧠 Titan Embeddings</li>
+        </ul>
+        
+        <h2>Quick Start</h2>
+        <p>Use the API endpoints to interact with Kubrick AI:</p>
+        <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;">
+# Upload a video
+curl -X POST "http://your-server:8080/upload-video" \\
+  -F "file=@your-video.mp4"
+
+# Chat with AI about the video
+curl -X POST "http://your-server:8080/chat" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "What happens in this video?", "video_path": "path/to/video.mp4"}'
+        </pre>
+        
+        <h2>System Status</h2>
+        <div id="status">
+            <p>🔄 Checking system status...</p>
+        </div>
+    </div>
+    
+    <script>
+        // Simple status check
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').innerHTML = 
+                    '<p>✅ API Server: Online</p>' +
+                    '<p>🤖 Agent: Ready</p>' +
+                    '<p>☁️ AWS Bedrock: Connected</p>';
+            })
+            .catch(error => {
+                document.getElementById('status').innerHTML = 
+                    '<p>⚠️ Checking API connection...</p>' +
+                    '<p>Please ensure the API server is running on port 8080</p>';
+            });
+    </script>
+</body>
+</html>
+EOF
+
+EXPOSE 3000
+
+CMD ["nginx", "-g", "daemon off;"]

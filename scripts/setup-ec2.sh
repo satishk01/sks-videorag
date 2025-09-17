@@ -2,11 +2,13 @@
 
 # Kubrick AI EC2 Setup Script
 # This script configures the environment for EC2 deployment
+# Optimized for Amazon Linux 2023
 
 set -e
 
 echo "🚀 Kubrick AI EC2 Setup Script"
 echo "================================"
+echo "Optimized for Amazon Linux 2023"
 
 # Get EC2 public IP
 echo "📡 Getting EC2 public IP..."
@@ -74,15 +76,18 @@ setup_api_env() {
 # Function to setup production docker-compose
 setup_docker_compose() {
     echo ""
-    echo "🐳 Configuring Docker Compose for production..."
+    echo "🐳 Configuring Docker Compose for EC2..."
     
-    # Copy production compose file
-    cp docker-compose.prod.yml docker-compose.yml
+    # Copy EC2-optimized compose file
+    cp docker-compose.ec2.yml docker-compose.yml
     
     # Update UI environment with EC2 public IP
     sed -i "s/your-ec2-public-ip/$EC2_PUBLIC_IP/g" docker-compose.yml
     
-    echo "✅ Docker Compose configured for EC2 deployment"
+    # Update UI Dockerfile for memory optimization
+    sed -i 's|dockerfile: Dockerfile|dockerfile: Dockerfile.ec2|g' docker-compose.yml
+    
+    echo "✅ Docker Compose configured for EC2 deployment with memory optimization"
 }
 
 # Function to test AWS credentials
@@ -137,12 +142,18 @@ main() {
     echo "Your Kubrick AI is configured for EC2 deployment:"
     echo "• EC2 Public IP: $EC2_PUBLIC_IP"
     echo "• AWS Region: $AWS_REGION"
+    echo "• Memory optimized for EC2 constraints"
     echo ""
     echo "Next steps:"
-    echo "1. Start the application: docker-compose up -d"
-    echo "2. Check logs: docker-compose logs -f"
-    echo "3. Access UI: http://$EC2_PUBLIC_IP:3000"
-    echo "4. Access API: http://$EC2_PUBLIC_IP:8080"
+    echo "1. Build services (may take 10-15 minutes): docker-compose build"
+    echo "2. Start the application: docker-compose up -d"
+    echo "3. Check logs: docker-compose logs -f"
+    echo "4. Access UI: http://$EC2_PUBLIC_IP:3000"
+    echo "5. Access API: http://$EC2_PUBLIC_IP:8080"
+    echo ""
+    echo "⚠️  Note: If build fails with memory errors, try:"
+    echo "   • Use t3.medium or larger instance"
+    echo "   • Add swap space: sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile"
     echo ""
     echo "For troubleshooting, see: docs/EC2_DEPLOYMENT_GUIDE.md"
 }

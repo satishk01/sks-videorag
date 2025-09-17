@@ -1,0 +1,41 @@
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
+# Set Node.js memory limit for build process
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+
+# Copy package files first for better caching
+COPY package*.json ./
+
+# Install dependencies with verbose logging
+RUN npm install --verbose --no-audit --no-fund
+
+# Copy source code
+COPY . .
+
+# Debug: List files to ensure everything is copied
+RUN ls -la
+
+# Build with error handling and verbose output
+RUN npm run build --verbose || (echo "Build failed, checking logs..." && cat /root/.npm/_logs/*.log 2>/dev/null || echo "No npm logs found" && exit 1)
+
+# Verify build output
+RUN ls -la dist/ || (echo "No dist directory found" && exit 1)
+
+# ------------------------------------------------------------
+
+FROM nginx:alpine
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built application
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 3000
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -13,7 +13,7 @@ This guide provides step-by-step instructions for deploying Kubrick AI on Amazon
 
 ### 1. Launch EC2 Instance
 
-**Recommended Instance Type**: `t3.large` or larger (4GB+ RAM)
+**Recommended Instance Type**: `t3.medium` or larger (4GB+ RAM recommended, 2GB minimum)
 
 **Security Group Rules**:
 ```
@@ -34,13 +34,13 @@ ssh -i your-key.pem ec2-user@your-ec2-public-ip
 
 ### 3. Install Dependencies
 
-#### For Amazon Linux 2:
+#### For Amazon Linux 2023:
 ```bash
 # Update system
-sudo yum update -y
+sudo dnf update -y
 
 # Install Docker
-sudo yum install -y docker
+sudo dnf install -y docker
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -a -G docker ec2-user
@@ -49,8 +49,8 @@ sudo usermod -a -G docker ec2-user
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
-# Install Git
-sudo yum install -y git
+# Install Git and other tools
+sudo dnf install -y git htop
 
 # Logout and login again for docker group to take effect
 exit
@@ -162,9 +162,41 @@ environment:
 
 ### 4. Deploy Application
 
+#### Option A: Automated Setup (Recommended)
 ```bash
+# Run the setup script
+chmod +x scripts/setup-ec2.sh
+./scripts/setup-ec2.sh
+
+# Build services (may take 10-15 minutes)
+docker-compose build
+
+# Start services
+docker-compose up -d
+```
+
+#### Option B: Manual Setup
+```bash
+# Copy EC2-optimized compose file
+cp docker-compose.ec2.yml docker-compose.yml
+
+# Update with your EC2 public IP
+sed -i "s/your-ec2-public-ip/$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/g" docker-compose.yml
+
 # Build and start services
 docker-compose up -d
+```
+
+#### If Build Fails with Memory Errors
+```bash
+# Add swap space (temporary fix)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Try building again
+docker-compose build
 
 # Check logs
 docker-compose logs -f
@@ -325,14 +357,30 @@ aws bedrock list-foundation-models --region us-east-1
 
 **Check IAM Permissions**: Ensure your AWS user has Bedrock and Transcribe permissions.
 
-#### 4. Out of Memory
+#### 4. Out of Memory During Build
 
-**Increase Instance Size** or **Optimize Docker Resources**:
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 2G  # Reduce if needed
+**Add Swap Space**:
+```bash
+# Create 2GB swap file
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Make permanent (optional)
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+**Or Increase Instance Size**:
+- Upgrade to `t3.medium` (4GB RAM) or larger
+- Use memory-optimized instances like `r5.large`
+
+**Optimize Docker Build**:
+```bash
+# Build services one at a time
+docker-compose build kubrick-mcp
+docker-compose build kubrick-api  
+docker-compose build kubrick-ui
 ```
 
 ### Debug Commands
