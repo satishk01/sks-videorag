@@ -1,0 +1,68 @@
+services:
+  kubrick-mcp:
+    container_name: kubrick-mcp
+    build:
+      context: ./kubrick-mcp
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    ports:
+      - "9090:9090"
+    env_file:
+      - ./kubrick-mcp/.env
+    networks:
+      - agent-network
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=9090
+    volumes:
+      - shared_media:/app/shared_media
+      - ~/.cache:/root/.cache
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G   
+        reservations:
+          cpus: '1'    
+          memory: 1G
+    restart: unless-stopped
+
+  kubrick-api:
+    container_name: kubrick-api
+    build:
+      context: ./kubrick-api
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    ports:
+      - "8080:8080"
+    environment:
+      - DISABLE_NEST_ASYNCIO=True
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+    env_file:
+      - ./kubrick-api/.env
+    networks:
+      - agent-network
+    depends_on:
+      - kubrick-mcp
+    volumes:
+      - shared_media:/app/shared_media
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    name: agent-network
+
+volumes:
+  shared_media:
+    name: shared_media

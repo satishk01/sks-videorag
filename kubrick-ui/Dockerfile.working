@@ -1,0 +1,86 @@
+# Multi-stage build with proper error handling
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Install system dependencies for native modules
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git
+
+# Set memory limits and build environment
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+ENV NODE_ENV="production"
+ENV GENERATE_SOURCEMAP="false"
+
+# Copy package files
+COPY package*.json ./
+
+# Clean install with proper error handling
+RUN npm ci --verbose --no-audit --no-fund --no-optional || \
+    (echo "npm ci failed, trying npm install..." && npm install --verbose --no-audit --no-fund)
+
+# Verify critical dependencies
+RUN npm list vite || (echo "Vite not found, installing..." && npm install vite@latest)
+
+# Copy source files
+COPY . .
+
+# Create a minimal vite config if missing
+RUN test -f vite.config.ts || cat > vite.config.ts << 'EOF'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react-swc'
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 3000
+  }
+})
+EOF
+
+# Build with comprehensive error handling
+RUN npm run build 2>&1 | tee build.log || \
+    (echo "=== BUILD FAILED ===" && \
+     echo "Build log:" && cat build.log && \
+     echo "Package.json scripts:" && cat package.json | grep -A 10 '"scripts"' && \
+     echo "Installed packages:" && npm list --depth=0 && \
+     echo "Trying alternative build..." && \
+     npx vite build --mode production) || \
+    (echo "All build attempts failed" && exit 1)
+
+# Verify build output
+RUN ls -la dist/ && test -f dist/index.html || (echo "Build output missing" && exit 1)
+
+# Production stage
+FROM nginx:alpine
+
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built app
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Add health check
+RUN echo '#!/bin/sh\ncurl -f http://localhost:3000/ || exit 1' > /usr/local/bin/healthcheck && \
+    chmod +x /usr/local/bin/healthcheck
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD /usr/local/bin/healthcheck
+
+CMD ["nginx", "-g", "daemon off;"]
